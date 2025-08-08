@@ -29,11 +29,85 @@ def test_from_vector_small():
 def test_no_solution_found():
     """测试一个已知无解的场景"""
     n = 91
-    p_str = "111_" # 错误的p
-    q_str = "101_" # 错误的q
+    p_str = "000_" # 不可能的p (neither 7 nor 13 start with 000)
+    q_str = "000_" # 不可能的q (neither 7 nor 13 start with 000)
     
     result = factor_known_bits.from_str(n, p_str, q_str)
     assert result is None
+
+def test_endianness_big_endian():
+    """测试大端序（正常情况）"""
+    n = 91  # 91 = 7 * 13, where 7 = 0111, 13 = 1101
+    p_str = "110_"  # 1101 -> 13 in big-endian  
+    q_str = "011_"  # 0111 -> 7 in big-endian
+    
+    result = factor_known_bits.from_str(n, p_str, q_str)
+    assert result is not None
+    assert set(result) == {7, 13}
+
+def test_endianness_little_endian():
+    """测试小端序（需要自动反转）"""
+    n = 91  # 91 = 7 * 13
+    # 如果用户提供的是小端序的bit模式：
+    # 7 = 0111, 反转后是 1110
+    # 13 = 1101, 反转后是 1011
+    p_str = "_011"  # 1011 reversed -> 1101 = 13
+    q_str = "111_"  # 1110 reversed -> 0111 = 7
+    
+    result = factor_known_bits.from_str(n, p_str, q_str)
+    assert result is not None
+    assert set(result) == {7, 13}
+
+def test_enhanced_api_with_success():
+    """测试增强API - 成功案例"""
+    n = 91
+    p_str = "110_"
+    q_str = "011_"
+    
+    result = factor_known_bits.from_str_enhanced(n, p_str, q_str)
+    assert result.success
+    assert result.factors is not None
+    assert set(result.factors) == {7, 13}
+    assert 'progress' in result.error_info
+
+def test_enhanced_api_with_failure():
+    """测试增强API - 失败案例"""
+    n = 91
+    p_str = "000_"
+    q_str = "000_"
+    
+    result = factor_known_bits.from_str_enhanced(n, p_str, q_str)
+    assert not result.success
+    assert result.factors is None
+    assert 'attempts' in result.error_info
+    assert len(result.error_info['attempts']) == 2  # 两种endianness都尝试了
+
+def test_enhanced_api_with_endianness_detection():
+    """测试增强API - 端序自动检测"""
+    n = 91
+    # 提供错误的端序，但应该能自动检测并修正
+    p_str = "_011"  # little-endian pattern for 13
+    q_str = "111_"  # little-endian pattern for 7
+    
+    result = factor_known_bits.from_str_enhanced(n, p_str, q_str)
+    assert result.success
+    assert result.factors is not None
+    assert set(result.factors) == {7, 13}
+    assert 'suggestion' in result.error_info
+    assert 'reversed bit order' in result.error_info['suggestion']
+
+def test_vector_endianness():
+    """测试向量形式的端序处理"""
+    n = 91
+    # 7 = 0111, 13 = 1101
+    # 小端序: 7 reversed = [1,1,1,0], 13 reversed = [1,0,1,1]
+    p_vec = [-1, 0, 1, 1]  # little-endian pattern for 13 (1101 -> [1,0,1,1])
+    q_vec = [1, 1, 1, -1]  # little-endian pattern for 7 (0111 -> [1,1,1,0])
+    
+    result = factor_known_bits.from_vector_enhanced(n, p_vec, q_vec)
+    assert result.success
+    assert result.factors is not None
+    assert set(result.factors) == {7, 13}
 
 # 使用 pytest.mark.slow 来标记可能耗时较长的测试
 @pytest.mark.slow
