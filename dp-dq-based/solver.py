@@ -4,7 +4,6 @@ import os
 from dataclasses import dataclass
 from typing import Iterable, List, Optional, Sequence, Tuple
 
-import gmpy2 as gmp
 
 
 # Input constants from the original script
@@ -128,8 +127,8 @@ def _dfs_search_for_kpair(
 
             phi = (p - 1) * (q - 1)
             try:
-                d = int(gmp.invert(e, phi))
-            except ZeroDivisionError:
+                d = pow(e, -1, phi)
+            except ValueError:
                 continue
             m = pow(c, d, n)
             return (int(p), int(q), int_to_bytes(m))
